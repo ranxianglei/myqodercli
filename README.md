@@ -4,10 +4,8 @@
 
 qodercli 的包装器，解决两个痛点：
 
-1. **自动跳过权限确认** — `qodercli --yolo` 虽然显示"跳过权限"，但实际上每次工具调用仍会弹窗确认。myqodercli 通过 PTY 代理自动替你点击"允许且不再问"。
+1. **自动跳过权限确认** — `qodercli --yolo` 虽然显示"跳过权限"，但实际上每次工具调用仍会弹窗确认。myqodercli 通过 node-pty 真实终端自动替你点击"允许且不再问"。
 2. **抗压缩记忆** — qodercli 上下文满时会 compact，导致对话记忆丢失。myqodercli 用外部持久化记忆文件在压缩后恢复关键上下文。
-
-纯 bash + expect，不再需要 Node.js。
 
 ## 一键安装
 
@@ -15,13 +13,7 @@ qodercli 的包装器，解决两个痛点：
 curl -fsSL https://raw.githubusercontent.com/ranxianglei/myqodercli/master/install-myqodercli.sh | bash
 ```
 
-默认安装到 `~/.local/bin/myqodercli`。需要 `expect`：
-
-```bash
-sudo apt install -y expect       # Debian/Ubuntu
-sudo yum install -y expect       # RHEL/CentOS
-brew install expect              # macOS
-```
+默认安装到 `~/.local/bin/myqodercli`。需要 **Node.js >= 18**。
 
 ## 使用
 
@@ -36,12 +28,12 @@ myqodercli --no-yolo -w /path        # 关闭自动跳过，手动确认
 ## 原理
 
 ```
-终端 ──→ [myqodercli PTY 代理] ──→ qodercli
-              ↕ 拦截
-        检测到权限弹窗 → 自动发送 "2\r"
+终端 ──→ [myqodercli node-pty 代理] ──→ qodercli
+                ↕ 拦截
+          检测到权限弹窗 → 自动发送 "2\r"
 ```
 
-一个正则 `Permission required`（不区分大小写）覆盖所有工具类型：Bash、Write、Edit、Delete、Move、MCP tools。
+基于 `node-pty` 的真实终端交互，稳定可靠。一个正则 `Permission required` 覆盖所有工具类型：Bash、Write、Edit、Delete、Move、MCP tools。
 
 ## 持久化记忆
 

@@ -59,6 +59,25 @@ NODESRC
 
 require_node
 
+require_build_tools() {
+  if command -v g++ &>/dev/null && command -v python3 &>/dev/null && command -v make &>/dev/null; then
+    return 0
+  fi
+  echo "Installing build dependencies for node-pty (g++, python3, make)..."
+  local SUDO=""; command -v sudo &>/dev/null && SUDO="sudo"
+  if command -v apt-get &>/dev/null; then
+    $SUDO apt-get install -y build-essential python3 2>/dev/null || true
+  elif command -v dnf &>/dev/null; then
+    $SUDO dnf install -y gcc-c++ python3 make 2>/dev/null || true
+  elif command -v yum &>/dev/null; then
+    $SUDO yum install -y gcc-c++ python3 make 2>/dev/null || true
+  elif command -v brew &>/dev/null; then
+    brew install python make 2>/dev/null || true
+  fi
+}
+
+require_build_tools
+
 INSTALL_DIR="${1:-$HOME/.local/bin}"
 APP_DIR="$HOME/.myqodercli"
 

@@ -3,7 +3,8 @@ import { join, dirname } from 'path'
 import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync, readdirSync } from 'fs'
 import { createInterface } from 'readline'
 import { stdin, stdout, argv, exit, env } from 'process'
-const pty = require('node-pty') as typeof import('node-pty')
+// @ts-ignore
+const pty: typeof import('node-pty') = require('@homebridge/node-pty-prebuilt-multiarch')
 
 const __dirname = dirname(__filename)
 const QODER_PROJECTS = join(env.HOME || '~', '.qoder', 'projects')
@@ -194,7 +195,7 @@ function spawnTuiPty(qc: string, args: string[]): void {
   if (stdin.isTTY) stdin.setRawMode(true)
   stdin.resume()
   stdin.on('data', (d: Buffer) => ptyProc.write(d))
-  ptyProc.onExit(({ exitCode, signal }) => {
+  ptyProc.onExit(({ exitCode, signal }: { exitCode: number | undefined; signal: string }) => {
     if (stdin.isTTY) stdin.setRawMode(false)
     exit(exitCode ?? (signal ? 128 : 1))
   })

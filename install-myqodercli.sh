@@ -1,59 +1,47 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# myqodercli —一键安装脚本
-#
-# 依赖: expect (APT: apt install expect / YUM: yum install expect)
-# 用法: bash install-myqodercli.sh [安装目录]
-# 示例: bash install-myqodercli.sh ~/.local/bin
-# ==============================================================================
 set -euo pipefail
 
 INSTALL_DIR="${1:-$HOME/.local/bin}"
 
-# ── 1. 依赖检查 + 自动安装 ──────────────────────────────────────────────────
-auto_install_expect() {
-  local pm="" cmd=""
-  if command -v apt-get &>/dev/null; then
-    pm="apt-get" && cmd="DEBIAN_FRONTEND=noninteractive apt-get install -y expect"
-  elif command -v yum &>/dev/null; then
-    pm="yum" && cmd="yum install -y expect"
-  elif command -v dnf &>/dev/null; then
-    pm="dnf" && cmd="dnf install -y expect"
-  elif command -v brew &>/dev/null; then
-    brew install expect && return 0
-  fi
-  if [[ -n "$pm" ]]; then
-    echo "正在通过 $pm 安装 expect..."
-    if command -v sudo &>/dev/null; then
-      sudo sh -c "$cmd" && return 0
-    else
-      eval "$cmd" && return 0
-    fi
-  fi
-  return 1
-}
-
 if ! command -v expect &>/dev/null; then
+  auto_install_expect() {
+    local pm="" cmd=""
+    if command -v apt-get &>/dev/null; then
+      pm="apt-get" && cmd="DEBIAN_FRONTEND=noninteractive apt-get install -y expect"
+    elif command -v yum &>/dev/null; then
+      pm="yum" && cmd="yum install -y expect"
+    elif command -v dnf &>/dev/null; then
+      pm="dnf" && cmd="dnf install -y expect"
+    elif command -v brew &>/dev/null; then
+      brew install expect && return 0
+    fi
+    if [[ -n "$pm" ]]; then
+      echo "auto installing expect via $pm..."
+      if command -v sudo &>/dev/null; then
+        sudo sh -c "$cmd" && return 0
+      else
+        eval "$cmd" && return 0
+      fi
+    fi
+    return 1
+  }
   if ! auto_install_expect; then
-    echo "错误: 无法自动安装 expect" >&2
-    echo "请手动安装后重试: sudo apt install -y expect  或  sudo yum install -y expect" >&2
+    echo "error: failed to install expect" >&2
+    echo "manual: sudo apt install -y expect  or  sudo yum install -y expect" >&2
     exit 1
   fi
   if ! command -v expect &>/dev/null; then
-    echo "错误: expect 安装后仍未找到，请重启终端后重试" >&2
+    echo "error: expect not found after install, restart your terminal or check PATH" >&2
     exit 1
   fi
 fi
 
 if ! command -v qodercli &>/dev/null && [ -z "${QODERCLI_PATH:-}" ] && [ -z "${QODER_BINARY:-}" ]; then
-  echo "警告: 'qodercli' 未在 PATH 中，请先安装或设置 QODERCLI_PATH 环境变量" >&2
-  echo "" >&2
+  echo "warning: 'qodercli' not in PATH, set QODERCLI_PATH or install it first" >&2
 fi
 
-# ── 2. 确认安装目录 ─────────────────────────────────────────────────
 mkdir -p "$INSTALL_DIR"
 
-# ── 3. 内联安装 myqodercli ──────────────────────────────────────────
 cat > "$INSTALL_DIR/myqodercli" <<'QWRAP_EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -100,7 +88,6 @@ MEM_TMPL="## 任务目标
 
 "
 
-# ── resolve qodercli ──────────────────────────────────────────
 resolve_qodercli() {
   if [[ -n "${QODERCLI_PATH:-}" && -f "$QODERCLI_PATH" ]]; then
     printf '%s' "$QODERCLI_PATH"
@@ -118,16 +105,13 @@ resolve_qodercli() {
   exit 1
 }
 
-# ── find latest session for cwd ───────────────────────────────
 find_latest_session() {
   local cwd="$1"
   local slug
   slug="$(printf '%s' "$cwd" | sed 's|^/||;s|/|-|g')"
   [[ -z "$slug" ]] && slug="root"
-
   local dir="${QODER_PROJECTS}/${slug}"
   [[ -d "$dir" ]] || return 1
-
   local best="" best_mt=0
   for f in "$dir"/*-session.json; do
     [[ -f "$f" ]] || continue
@@ -141,11 +125,9 @@ find_latest_session() {
       best_mt="$mt"
     fi
   done
-
   [[ -n "$best" ]] && printf '%s' "$best"
 }
 
-# ── ensure memory file ────────────────────────────────────────
 ensure_mem_file() {
   local sid="$1"
   mkdir -p "$QWRAP_SESS_DIR"
@@ -163,10 +145,8 @@ ensure_mem_file() {
   printf '%s' "$mp"
 }
 
-# ── process args ──────────────────────────────────────────────
 HAS_NO_YOLO=false
 EXTRA_ARGS=()
-
 raw_args=("$@")
 i=0
 while [[ $i -lt ${#raw_args[@]} ]]; do
@@ -186,7 +166,6 @@ while [[ $i -lt ${#raw_args[@]} ]]; do
   i=$((i + 1))
 done
 
-# Inject --yolo if not opted out
 if ! $HAS_NO_YOLO; then
   if [[ ! " ${EXTRA_ARGS[*]:-} " =~ " --yolo " ]] && [[ ! " ${EXTRA_ARGS[*]:-} " =~ " --dangerously-skip-permissions " ]]; then
     EXTRA_ARGS=("--yolo" "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}")
@@ -195,7 +174,6 @@ fi
 
 QC="$(resolve_qodercli)"
 
-# ── mode: info / piped → direct exec ─────────────────────────
 if [[ " ${EXTRA_ARGS[*]:-} " =~ " -v " ]] || \
    [[ " ${EXTRA_ARGS[*]:-} " =~ " --version " ]] || \
    [[ " ${EXTRA_ARGS[*]:-} " =~ " -h " ]] || \
@@ -204,12 +182,10 @@ if [[ " ${EXTRA_ARGS[*]:-} " =~ " -v " ]] || \
   exec "$QC" "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}"
 fi
 
-# ── mode: --no-yolo → direct exec ────────────────────────────
 if $HAS_NO_YOLO; then
   exec "$QC" "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}"
 fi
 
-# ── mode: TUI PTY proxy via expect ───────────────────────────
 WORKDIR=""
 for ((a=0; a<${#raw_args[@]}; a++)); do
   if [[ "${raw_args[$a]}" == "-w" && $((a+1)) -lt ${#raw_args[@]} ]]; then
@@ -218,8 +194,6 @@ for ((a=0; a<${#raw_args[@]}; a++)); do
 done
 
 CWD="${WORKDIR:-$(pwd)}"
-COLS="${COLUMNS:-80}"
-ROWS="${LINES:-24}"
 
 SESSION_ID=""
 MEM_PATH=""
@@ -228,17 +202,20 @@ if SID="$(find_latest_session "$CWD" 2>/dev/null)" && [[ -n "$SID" ]]; then
   MEM_PATH="$(ensure_mem_file "$SID")"
 fi
 
-exec expect -f - -- "$QC" "$CWD" "$COLS" "$ROWS" "$SESSION_ID" "$MEM_PATH" "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}" <<'EXPECT_SCRIPT'
-set qc          [lindex $argv 0]
-set cwd         [lindex $argv 1]
-set cols        [lindex $argv 2]
-set rows        [lindex $argv 3]
-set session_id  [lindex $argv 4]
-set mem_path    [lindex $argv 5]
+# write expect script to temp file to avoid heredoc stdin issues
+_ESCRIPT=$(mktemp /tmp/myqodercli-expect.XXXXXX.tcl)
+trap 'rm -f "$_ESCRIPT"' EXIT
+
+cat > "$_ESCRIPT" <<'EXPECT_EOF'
+set qc          $::env(EXP_QC)
+set session_id  $::env(EXP_SESSION_ID)
+set mem_path    $::env(EXP_MEM_PATH)
 
 set env(FORCE_COLOR) [expr {![info exists env(FORCE_COLOR)] || $env(FORCE_COLOR) eq "" ? "1" : $env(FORCE_COLOR)}]
 
-eval spawn -noecho $qc [lrange $argv 6 end]
+# build arg list: split on unit separator
+set args [split $::env(EXP_CMD_ARGS) \001]
+eval spawn -noecho $qc $args
 match_max 131072
 log_user 0
 
@@ -269,16 +246,17 @@ proc read_file {path} {
 
 proc do_inject {mp} {
   set content [read_file $mp]
-  send "规则：持续维护 ${mp}。每次回复末尾用 Bash 更新 Worklog 和各章节。Compaction 后先 cat ${mp} 恢复记忆。Worklog 按时间追加记录用户需求变化、任务切换、关键决策。\n\n记忆文件内容：\n\n${content}\n\n请消化并继续。\n"
+  send "rules: keep updating ${mp} at end of each reply. after compaction, cat ${mp} to restore context. worklog: append user requests, task switches, key decisions.\n\nmemory:\n\n${content}\n\nack and continue.\n"
 }
 
 set timeout -1
 
 expect {
-  -re "(.+?)([\r\n]+|$)" {
+  -re {(.+?)(\u000a|\u000d|$)} {
     set chunk $expect_out(0,string)
     append buf $chunk
-    puts -nonewline stdout $chunk
+    send_user -- $chunk
+    flush stdout
     flush stdout
 
     set clean [strip_ansi $buf]
@@ -315,26 +293,32 @@ expect {
   }
   eof {
     if {[info exists expect_out(buffer)] && $expect_out(buffer) ne ""} {
-      puts -nonewline stdout $expect_out(buffer)
-      flush stdout
+      send_user $expect_out(buffer)
     }
   }
 }
 
 catch {close}
 catch {wait}
-EXPECT_SCRIPT
+EXPECT_EOF
+
+export EXP_QC="$QC"
+export EXP_SESSION_ID="$SESSION_ID"
+export EXP_MEM_PATH="$MEM_PATH"
+# use unit separator (0x1f) to join array, split in TCL with \u001f
+export EXP_CMD_ARGS="$(printf '%s' "${EXTRA_ARGS[0]}"; for ((i=1;i<${#EXTRA_ARGS[@]};i++)); do printf '\037%s' "${EXTRA_ARGS[$i]}"; done)"
+
+exec expect -f "$_ESCRIPT"
 QWRAP_EOF
 
 chmod +x "$INSTALL_DIR/myqodercli"
 
-# ── 4. 完成 ─────────────────────────────────────────────────────────
-echo "✅ myqodercli 安装完成 → $INSTALL_DIR/myqodercli"
+echo "✅ myqodercli installed → $INSTALL_DIR/myqodercli"
 echo ""
-echo "用法:"
-echo "  myqodercli -p 'explain this repo'     # 自动授权"
-echo "  myqodercli -w /path/to/project        # 自动授权"
-echo "  myqodercli                            # 自动授权 (TUI PTY 模式)"
+echo "usage:"
+echo "  myqodercli -p 'explain this repo'     # auto-yolo"
+echo "  myqodercli -w /path/to/project        # auto-yolo"
+echo "  myqodercli                            # auto-yolo (TUI PTY mode)"
 echo ""
-echo "  myqodercli --no-yolo -w /path         # 需要手动授权"
-echo "  myqodercli --continue                 # 继续之前对话"
+echo "  myqodercli --no-yolo -w /path         # require permissions"
+echo "  myqodercli --continue                 # resume conversation"

@@ -1,114 +1,58 @@
 # myqodercli
 
-qodercli 的无缝替代方案，提供**自动跳过权限确认**和**压缩后持久化记忆**。
+[English](README.md)
 
-零 Node.js 依赖，纯 bash + expect 实现。
+qodercli 的包装器，解决两个痛点：
 
-## 安装
+1. **自动跳过权限确认** — `qodercli --yolo` 虽然显示"跳过权限"，但实际上每次工具调用仍会弹窗确认。myqodercli 通过 PTY 代理自动替你点击"允许且不再问"。
+2. **抗压缩记忆** — qodercli 上下文满时会 compact，导致对话记忆丢失。myqodercli 用外部持久化记忆文件在压缩后恢复关键上下文。
 
-### 一键安装（推荐）
+纯 bash + expect，不再需要 Node.js。
+
+## 一键安装
 
 ```bash
-bash install-myqodercli.sh ~/.local/bin
+curl -fsSL https://raw.githubusercontent.com/ranxianglei/myqodercli/master/install-myqodercli.sh | bash
 ```
 
-需要先安装 `expect`：
+默认安装到 `~/.local/bin/myqodercli`。需要 `expect`：
+
 ```bash
 sudo apt install -y expect       # Debian/Ubuntu
 sudo yum install -y expect       # RHEL/CentOS
 brew install expect              # macOS
 ```
 
-### 旧版（Node.js 构建）
+## 使用
 
 ```bash
-npm install && npm run build
-./install.sh ~/.local/bin
-```
-
-## 使用方法
-
-```bash
-myqodercli                           # TUI 模式，自动批准所有权限
+myqodercli                           # TUI 模式，自动批准权限
 myqodercli -w /path/to/project       # 设置工作目录
-myqodercli -p "explain this code"    # 非交互式，直接执行提示
-myqodercli --continue                # 恢复之前的对话
-myqodercli --no-yolo -w /path        # 关闭自动跳过，需要手动确认权限
+myqodercli -p "explain this code"    # 非交互式，直接执行
+myqodercli --continue                # 恢复之前对话
+myqodercli --no-yolo -w /path        # 关闭自动跳过，手动确认
 ```
 
-## 特性 1：自动跳过权限确认
-
-qodercli 的 `--yolo` 标志虽然显示 "bypass permissions on"，但**每次执行工具时仍然会弹窗确认**。myqodercli 通过 expect PTY 代理拦截权限弹窗，自动发送选项 2："Allow, and don't ask again this session."
+## 原理
 
 ```
-Your terminal ──→ [myqodercli expect proxy] ──→ qodercli
-                      ↕ 拦截
-                当权限弹窗出现时
-                自动发送 "2+Enter"
+终端 ──→ [myqodercli PTY 代理] ──→ qodercli
+              ↕ 拦截
+        检测到权限弹窗 → 自动发送 "2\r"
 ```
 
-### 覆盖范围
+一个正则 `Permission required`（不区分大小写）覆盖所有工具类型：Bash、Write、Edit、Delete、Move、MCP tools。
 
-一个正则表达式（`Permission required`，不区分大小写）覆盖**所有**工具类型：
+## 持久化记忆
 
-| 工具 | 触发条件 | 已覆盖 |
-|------|---------|--------|
-| Bash（rm, chmod, npm install, pkill...） | 任何 shell 命令 | ✅ |
-| Write | 创建 / 覆盖文件 | ✅ |
-| Edit | 修改已有文件 | ✅ |
-| Delete | 删除文件 / 目录 | ✅ |
-| Move | 重命名文件 | ✅ |
-| MCP 工具 | 外部 MCP 服务器工具 | ✅ |
-
-### 执行模式
-
-| 模式 | 触发条件 | 机制 |
-|------|---------|------|
-| **expect PTY 代理**（默认 TUI） | stdin 是 TTY | expect spawn → 清除 ANSI → 正则匹配 → 自动 `2\r` |
-| **纯透传** | `-v`、`-h`、`--help`、管道输入 | 直接执行，注入 `--yolo` |
-| **ACP 代理** | `--acp` 标志 | 需要 Node.js 构建（`npm run build`） |
-
-## 特性 2：持久化记忆（抗压缩）
-
-qodercli 在上下文满时会进行压缩，导致对话详情丢失。myqodercli 使用 `~/.qwrap/sessions/{sessionId}.md` 在压缩前后持久化关键上下文。
-
-### 工作原理
-
-```
-myqodercli start
-    ↓
-自动创建（如不存在）：
-├── ~/.qwrap/sessions/{sessionId}.md
-│       ├── 任务目标
-│       ├── 用户约束 / 偏好
-│       ├── 关键上下文
-│       ├── 开发工具 / 环境
-│       ├── 遇到的坑 / 注意事项
-│       └── 任务变更历史
-```
-
-### 压缩流程
-
-```
-1. 触发压缩 → 上下文被压缩
-2. AI 的记忆部分丢失
-3. AI 读取记忆文件 → 恢复所有关键信息
-4. AI 在完整上下文中继续工作
-```
-
-## 环境要求
-
-- **expect**（`apt install expect` / `brew install expect`）
-- qodercli 已安装且在 PATH 中可用
-
-Node.js 仅在 `--acp` 模式下需要。
+myqodercli 在 `~/.qwrap/sessions/{sessionId}.md` 维护记忆文件。compact 后 AI 读取该文件恢复上下文。结构包含任务目标、用户约束、关键上下文、开发环境、遇到的坑、任务变更历史。
 
 ## 环境变量
 
 | 变量 | 说明 |
 |------|------|
-| `QODERCLI_PATH` | qodercli 二进制的绝对路径（覆盖 PATH 查找） |
-| `QODER_BINARY` | 在 PATH 中找不到 qodercli 时的备用路径 |
+| `QODERCLI_PATH` | qodercli 的绝对路径（优先于 PATH 查找） |
+| `QODER_BINARY` | qodercli 的备用路径 |
 
 ## License
 

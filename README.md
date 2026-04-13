@@ -1,115 +1,58 @@
 # myqodercli
 
 [中文版](README_CN.md)
-Drop-in replacement for qodercli with **automatic permission bypass** and **persistent memory across compaction**.
 
-Zero Node.js dependencies — pure bash + expect.
+qodercli 的包装器，解决两个痛点：
 
-## Install
+1. **自动跳过权限确认** — `qodercli --yolo` 虽然显示"跳过权限"，但实际上每次工具调用仍会弹窗确认。myqodercli 通过 PTY 代理自动替你点击"允许且不再问"。
+2. **抗压缩记忆** — qodercli 上下文满时会 compact，导致对话记忆丢失。myqodercli 用外部持久化记忆文件在压缩后恢复关键上下文。
 
-### One-liner (Recommended)
+纯 bash + expect，不再需要 Node.js。
+
+## 一键安装
 
 ```bash
-bash install-myqodercli.sh ~/.local/bin
+curl -fsSL https://raw.githubusercontent.com/ranxianglei/myqodercli/master/install-myqodercli.sh | bash
 ```
 
-Requires `expect` installed:
+默认安装到 `~/.local/bin/myqodercli`。需要 `expect`：
+
 ```bash
 sudo apt install -y expect       # Debian/Ubuntu
 sudo yum install -y expect       # RHEL/CentOS
 brew install expect              # macOS
 ```
 
-### Legacy (Node.js build)
+## 使用
 
 ```bash
-npm install && npm run build
-./install.sh ~/.local/bin
+myqodercli                           # TUI 模式，自动批准权限
+myqodercli -w /path/to/project       # 设置工作目录
+myqodercli -p "explain this code"    # 非交互式，直接执行
+myqodercli --continue                # 恢复之前对话
+myqodercli --no-yolo -w /path        # 关闭自动跳过，手动确认
 ```
 
-## Usage
-
-```bash
-myqodercli                           # TUI mode — auto-approve all permissions
-myqodercli -w /path/to/project       # set working directory
-myqodercli -p "explain this code"    # non-interactive prompt
-myqodercli --continue                # resume previous conversation
-myqodercli --no-yolo -w /path        # opt out, require permissions
-```
-
-## Feature 1: Automatic Permission Bypass
-
-qodercli's `--yolo` flag displays "bypass permissions on" but **still asks for confirmation** on every tool execution. myqodercli solves this with an expect PTY proxy that intercepts permission dialogs and auto-sends option 2: "Allow, and don't ask again this session."
+## 原理
 
 ```
-Your terminal ──→ [myqodercli expect proxy] ──→ qodercli
-                      ↕ intercepts
-                auto-sends "2+Enter" when
-                permission dialog appears
+终端 ──→ [myqodercli PTY 代理] ──→ qodercli
+              ↕ 拦截
+        检测到权限弹窗 → 自动发送 "2\r"
 ```
 
-### Coverage
+一个正则 `Permission required`（不区分大小写）覆盖所有工具类型：Bash、Write、Edit、Delete、Move、MCP tools。
 
-One regex (`Permission required`, case-insensitive) covers **all** tool types:
+## 持久化记忆
 
-| Tool | Trigger | Covered |
-|------|---------|---------|
-| Bash (rm, chmod, npm install, pkill...) | Any shell command | ✅ |
-| Write | Create / overwrite files | ✅ |
-| Edit | Modify existing files | ✅ |
-| Delete | Remove files / directories | ✅ |
-| Move | Rename files | ✅ |
-| MCP tools | External MCP server tools | ✅ |
+myqodercli 在 `~/.qwrap/sessions/{sessionId}.md` 维护记忆文件。compact 后 AI 读取该文件恢复上下文。结构包含任务目标、用户约束、关键上下文、开发环境、遇到的坑、任务变更历史。
 
-### Execution Modes
+## 环境变量
 
-| Mode | Trigger | Mechanism |
-|------|---------|-----------|
-| **expect PTY proxy** (default TUI) | stdin is TTY | expect spawn → strip ANSI → regex match → auto `2\r` |
-| **Plain passthrough** | `-v`, `-h`, `--help`, piped stdin | Direct exec with `--yolo` injected |
-| **ACP proxy** | `--acp` flag | Requires Node.js build (`npm run build`) |
-
-## Feature 2: Persistent Memory (Compaction-Proof)
-
-qodercli compacts context when it gets full, losing conversation details. myqodercli uses `~/.qwrap/sessions/{sessionId}.md` to persist critical context across compaction.
-
-### How It Works
-
-```
-myqodercli start
-    ↓
-auto-create (if missing):
-├── ~/.qwrap/sessions/{sessionId}.md
-│       ├── 任务目标
-│       ├── 用户约束 / 偏好
-│       ├── 关键上下文
-│       ├── 开发工具 / 环境
-│       ├── 遇到的坑 / 注意事项
-│       └── 任务变更历史
-```
-
-### Compaction Flow
-
-```
-1. Compaction triggers → context is compressed
-2. AI's memory is partially lost
-3. AI reads the memory file → restores all key info
-4. AI continues with full context
-```
-
-## Requirements
-
-- **expect** (`apt install expect` / `brew install expect`)
-- qodercli installed and accessible in PATH
-
-Node.js is only needed for `--acp` mode.
-
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `QODERCLI_PATH` | Absolute path to qodercli binary (overrides PATH lookup) |
-| `QODER_BINARY` | Fallback path if qodercli not found in PATH |
+| 变量 | 说明 |
+|------|------|
+| `QODERCLI_PATH` | qodercli 的绝对路径（优先于 PATH 查找） |
+| `QODER_BINARY` | qodercli 的备用路径 |
 
 ## License
 

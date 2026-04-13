@@ -22,7 +22,7 @@ curl -fsSL https://raw.githubusercontent.com/ranxianglei/myqodercli/master/insta
 bash install-myqodercli.sh
 ```
 
-默认安装到 `~/.local/bin/myqodercli`。需要 **Node.js >= 18**。
+默认安装到 `~/.local/bin/myqodercli`。需要 **Node.js >= 18** — 安装脚本会自动检测，版本过低或没装时会自动安装 Node.js 20 LTS。
 
 ## 使用
 

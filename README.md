@@ -1,5 +1,6 @@
 # myqodercli
 
+[中文版](README_CN.md)
 Drop-in replacement for qodercli with **automatic permission bypass** and **persistent memory across compaction**.
 
 Zero Node.js dependencies — pure bash + expect.

@@ -150,6 +150,19 @@ function spawnTuiPty(qc: string, args: string[]): void {
   const sess = findLatestSession(workDir)
   const memPath = sess ? ensureMemFile(sess.id) : null
 
+  const os = require('os') as typeof import('os')
+  const localIp: string = (() => {
+    const ifaces = os.networkInterfaces()
+    for (const iface of Object.values(ifaces)) {
+      for (const net of (iface || [])) {
+        if (net.family === 'IPv4' && !net.internal) return net.address
+      }
+    }
+    return '0.0.0.0'
+  })()
+
+  stdout.write(`\x1b]0;myqodercli (${localIp}) - ${workDir}\x1b\\`)
+
   const ptyProc = pty.spawn(qc, args, {
     name: 'xterm-256color', cols, rows, cwd: workDir,
     env: { ...process.env, FORCE_COLOR: process.env.FORCE_COLOR ?? '1' },
@@ -158,12 +171,10 @@ function spawnTuiPty(qc: string, args: string[]): void {
   let buf = ''
   let lastOk = 0
   let injected = false
-  let cwdShown = false
 
   ptyProc.onData((data: string) => {
-    const filtered = data.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '🌐')
-    stdout.write(filtered)
-    buf += filtered
+    stdout.write(data)
+    buf += data
     const clean = buf.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\x0d/g, '')
     const tail = clean.slice(-4096)
 
@@ -182,11 +193,6 @@ function spawnTuiPty(qc: string, args: string[]): void {
           ptyProc.write(`规则：持续维护 ${memPath}。每次回复末尾用 Bash 更新 Worklog 和各章节。Compaction 后先 cat ${memPath} 恢复记忆。Worklog 按时间追加记录用户需求变化、任务切换、关键决策。\n\n记忆文件内容：\n\n${content}\n\n请消化并继续。\n`)
         }, 1500)
       }
-    }
-
-    if (!cwdShown && /Type your message/i.test(tail)) {
-      cwdShown = true
-      stdout.write(`\n \x1b[48;5;235m\x1b[38;5;147m 📁 ${workDir} \x1b[0m\n`)
     }
 
     if (buf.length > 65536) buf = buf.slice(-8192)

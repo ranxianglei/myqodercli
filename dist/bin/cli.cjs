@@ -175,21 +175,46 @@ function spawnTuiPty(qc, args) {
   let buf = "";
   let lastOk = 0;
   let injected = false;
-  let currentTitle = `myqodercli (${localIp})`;
+  let qoderTitle = "myqodercli";
+  let titlePhase = 0;
+  function composeTitle() {
+    const title = qoderTitle === "myqodercli" ? "" : ` | ${qoderTitle}`;
+    return `${localIp}${title}`;
+  }
   function updateTitle() {
-    import_process.stdout.write(`\x1B]0;${currentTitle}\x1B\\`);
+    import_process.stdout.write(`\x1B]0;${composeTitle()}\x1B\\`);
   }
   updateTitle();
-  ptyProc.onData((data) => {
-    const titleMatch = data.match(/(?:\x1b\]0;|\x1b\]2;|\x07)([^\x1b\x07]+)/);
-    if (titleMatch) {
-      const newTitle = titleMatch[1].trim();
-      if (newTitle && newTitle !== "Terminal") {
-        currentTitle = `${localIp} - ${newTitle}`;
-        updateTitle();
-      }
+  let titleRotator = null;
+  function startRotation(t) {
+    if (titleRotator) clearInterval(titleRotator);
+    qoderTitle = t;
+    const phases = [
+      `${localIp}`,
+      `${t}`,
+      `${localIp} | ${t}`
+    ];
+    titlePhase = 2;
+    import_process.stdout.write(`\x1B]0;${phases[2]}\x1B\\`);
+    if (phases[2].length > 60) {
+      let idx = 2;
+      titleRotator = setInterval(() => {
+        idx = (idx + 1) % 3;
+        titlePhase = idx;
+        import_process.stdout.write(`\x1B]0;${phases[idx]}\x1B\\`);
+      }, 3e3);
     }
-    import_process.stdout.write(data);
+  }
+  ptyProc.onData((data) => {
+    let filtered = data.replace(/\x1b\]0;([^\x07\x1b]*?)(?:\x07|\x1b\\)/g, (_, title) => {
+      const t = title.trim();
+      if (t && t !== "Terminal") {
+        startRotation(t);
+      }
+      return "";
+    });
+    if (!filtered) return;
+    import_process.stdout.write(filtered);
     buf += data;
     const clean = buf.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").replace(/\x0d/g, "");
     const tail = clean.slice(-4096);
@@ -225,6 +250,7 @@ ${content}
   import_process.stdin.on("data", (d) => ptyProc.write(d));
   ptyProc.onExit(({ exitCode, signal }) => {
     if (import_process.stdin.isTTY) import_process.stdin.setRawMode(false);
+    if (titleRotator) clearInterval(titleRotator);
     (0, import_process.exit)(exitCode ?? (signal ? 128 : 1));
   });
 }

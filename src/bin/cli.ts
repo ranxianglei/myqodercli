@@ -171,25 +171,52 @@ function spawnTuiPty(qc: string, args: string[]): void {
   let buf = ''
   let lastOk = 0
   let injected = false
-  let currentTitle = `myqodercli (${localIp})`
+  let qoderTitle = 'myqodercli'
+  let titlePhase = 0
+
+  function composeTitle(): string {
+    const title = qoderTitle === 'myqodercli' ? '' : ` | ${qoderTitle}`
+    return `${localIp}${title}`
+  }
 
   function updateTitle() {
-    stdout.write(`\x1b]0;${currentTitle}\x1b\\`)
+    stdout.write(`\x1b]0;${composeTitle()}\x1b\\`)
   }
   updateTitle()
 
-  ptyProc.onData((data: string) => {
-    // intercept qodercli's title-setting sequences, extract title, rebuild with IP
-    const titleMatch = data.match(/(?:\x1b\]0;|\x1b\]2;|\x07)([^\x1b\x07]+)/)
-    if (titleMatch) {
-      const newTitle = titleMatch[1].trim()
-      if (newTitle && newTitle !== 'Terminal') {
-        currentTitle = `${localIp} - ${newTitle}`
-        updateTitle()
-      }
+  let titleRotator: ReturnType<typeof setInterval> | null = null
+  function startRotation(t: string) {
+    if (titleRotator) clearInterval(titleRotator)
+    qoderTitle = t
+    const phases = [
+      `${localIp}`,
+      `${t}`,
+      `${localIp} | ${t}`,
+    ]
+    titlePhase = 2
+    stdout.write(`\x1b]0;${phases[2]}\x1b\\`)
+    if (phases[2].length > 60) {
+      let idx = 2
+      titleRotator = setInterval(() => {
+        idx = (idx + 1) % 3
+        titlePhase = idx
+        stdout.write(`\x1b]0;${phases[idx]}\x1b\\`)
+      }, 3000)
     }
+  }
 
-    stdout.write(data)
+  ptyProc.onData((data: string) => {
+    let filtered = data.replace(/\x1b\]0;([^\x07\x1b]*?)(?:\x07|\x1b\\)/g, (_, title: string) => {
+      const t = title.trim()
+      if (t && t !== 'Terminal') {
+        startRotation(t)
+      }
+      return ''
+    })
+
+    if (!filtered) return
+
+    stdout.write(filtered)
     buf += data
     const clean = buf.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\x0d/g, '')
     const tail = clean.slice(-4096)
@@ -219,6 +246,7 @@ function spawnTuiPty(qc: string, args: string[]): void {
   stdin.on('data', (d: Buffer) => ptyProc.write(d))
   ptyProc.onExit(({ exitCode, signal }: { exitCode: number | undefined; signal: string }) => {
     if (stdin.isTTY) stdin.setRawMode(false)
+    if (titleRotator) clearInterval(titleRotator)
     exit(exitCode ?? (signal ? 128 : 1))
   })
 }

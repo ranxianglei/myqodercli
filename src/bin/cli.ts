@@ -171,8 +171,24 @@ function spawnTuiPty(qc: string, args: string[]): void {
   let buf = ''
   let lastOk = 0
   let injected = false
+  let currentTitle = `myqodercli (${localIp})`
+
+  function updateTitle() {
+    stdout.write(`\x1b]0;${currentTitle}\x1b\\`)
+  }
+  updateTitle()
 
   ptyProc.onData((data: string) => {
+    // intercept qodercli's title-setting sequences, extract title, rebuild with IP
+    const titleMatch = data.match(/(?:\x1b\]0;|\x1b\]2;|\x07)([^\x1b\x07]+)/)
+    if (titleMatch) {
+      const newTitle = titleMatch[1].trim()
+      if (newTitle && newTitle !== 'Terminal') {
+        currentTitle = `${localIp} - ${newTitle}`
+        updateTitle()
+      }
+    }
+
     stdout.write(data)
     buf += data
     const clean = buf.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\x0d/g, '')

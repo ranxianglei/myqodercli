@@ -24,6 +24,19 @@ cd "$APP_DIR"
 npm install --production --silent 2>/dev/null || npm install --production 2>&1 | tail -1
 
 echo "$_CLI_B64" | base64 -d > "$APP_DIR/cli.cjs"
+# If base64 decoded file seems broken, try fetching fresh from Gitee/GitHub
+if ! node -c "$APP_DIR/cli.cjs" 2>/dev/null; then
+  for url in \
+    "https://gitee.com/ranxianglei/myqodercli/raw/master/dist/bin/cli.cjs" \
+    "https://ghproxy.com/https://raw.githubusercontent.com/ranxianglei/myqodercli/master/dist/bin/cli.cjs" \
+    "https://raw.githubusercontent.com/ranxianglei/myqodercli/master/dist/bin/cli.cjs"; do
+    if command -v curl &>/dev/null; then
+      curl -fsSL "$url" -o "$APP_DIR/cli.cjs" 2>/dev/null && break
+    elif command -v wget &>/dev/null; then
+      wget -qO "$APP_DIR/cli.cjs" "$url" 2>/dev/null && break
+    fi
+  done
+fi
 
 mkdir -p "$INSTALL_DIR"
 REAL_APP_DIR="$(cd "$APP_DIR" && pwd)"

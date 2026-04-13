@@ -253,7 +253,8 @@ ${content}
     if (titleRotator) clearInterval(titleRotator);
     const code = exitCode ?? (signal ? 128 : 0);
     if (code === 0) {
-      const cmd = workDir === process.cwd() ? "myqodercli --continue" : `myqodercli --continue -w ${workDir}`;
+      const sid = sess ? sess.id : null;
+      const cmd = sid ? `myqodercli -r ${sid}` : "myqodercli --continue";
       import_process.stdout.write(`
 \x1B[38;5;243m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\x1B[0m
 `);

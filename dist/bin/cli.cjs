@@ -251,7 +251,18 @@ ${content}
   ptyProc.onExit(({ exitCode, signal }) => {
     if (import_process.stdin.isTTY) import_process.stdin.setRawMode(false);
     if (titleRotator) clearInterval(titleRotator);
-    (0, import_process.exit)(exitCode ?? (signal ? 128 : 1));
+    const code = exitCode ?? (signal ? 128 : 0);
+    if (code === 0) {
+      const cmd = workDir === process.cwd() ? "myqodercli --continue" : `myqodercli --continue -w ${workDir}`;
+      import_process.stdout.write(`
+\x1B[38;5;243m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\x1B[0m
+`);
+      import_process.stdout.write(`\x1B[38;5;147m  Continue this session: \x1B[0m\x1B[38;5;214m${cmd}\x1B[0m
+`);
+      import_process.stdout.write(`\x1B[38;5;243m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\x1B[0m
+`);
+    }
+    (0, import_process.exit)(code);
   });
 }
 function main() {

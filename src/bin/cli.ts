@@ -247,7 +247,16 @@ function spawnTuiPty(qc: string, args: string[]): void {
   ptyProc.onExit(({ exitCode, signal }: { exitCode: number | undefined; signal: string }) => {
     if (stdin.isTTY) stdin.setRawMode(false)
     if (titleRotator) clearInterval(titleRotator)
-    exit(exitCode ?? (signal ? 128 : 1))
+    const code = exitCode ?? (signal ? 128 : 0)
+    if (code === 0) {
+      const cmd = workDir === process.cwd()
+        ? 'myqodercli --continue'
+        : `myqodercli --continue -w ${workDir}`
+      stdout.write(`\n\x1b[38;5;243m──────────────────────────────────────────────────────────\x1b[0m\n`)
+      stdout.write(`\x1b[38;5;147m  Continue this session: \x1b[0m\x1b[38;5;214m${cmd}\x1b[0m\n`)
+      stdout.write(`\x1b[38;5;243m──────────────────────────────────────────────────────────\x1b[0m\n`)
+    }
+    exit(code)
   })
 }
 

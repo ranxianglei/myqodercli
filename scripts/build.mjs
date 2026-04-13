@@ -13,7 +13,7 @@ esbuild.build({
   format: 'cjs',
   outfile: join(__dirname, '../dist/bin/cli.cjs'),
   banner: { js: '#!/usr/bin/env node' },
-  external: ['node-pty'],
+  external: ['node-pty', '@homebridge/node-pty-prebuilt-multiarch'],
   minify: false,
   sourcemap: false,
 }).then(() => {

@@ -145,21 +145,24 @@ function spawnPlain(qc: string, args: string[]): void {
 function spawnTuiPty(qc: string, args: string[]): void {
   const cols = process.stdout.columns || 80
   const rows = process.stdout.rows || 24
-  const sess = findLatestSession(process.cwd())
+  const workDir = process.cwd()
+  const sess = findLatestSession(workDir)
   const memPath = sess ? ensureMemFile(sess.id) : null
 
   const ptyProc = pty.spawn(qc, args, {
-    name: 'xterm-256color', cols, rows, cwd: process.cwd(),
+    name: 'xterm-256color', cols, rows, cwd: workDir,
     env: { ...process.env, FORCE_COLOR: process.env.FORCE_COLOR ?? '1' },
   })
 
   let buf = ''
   let lastOk = 0
   let injected = false
+  let cwdShown = false
 
   ptyProc.onData((data: string) => {
-    stdout.write(data)
-    buf += data
+    const filtered = data.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '🌐')
+    stdout.write(filtered)
+    buf += filtered
     const clean = buf.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\x0d/g, '')
     const tail = clean.slice(-4096)
 
@@ -178,6 +181,11 @@ function spawnTuiPty(qc: string, args: string[]): void {
           ptyProc.write(`规则：持续维护 ${memPath}。每次回复末尾用 Bash 更新 Worklog 和各章节。Compaction 后先 cat ${memPath} 恢复记忆。Worklog 按时间追加记录用户需求变化、任务切换、关键决策。\n\n记忆文件内容：\n\n${content}\n\n请消化并继续。\n`)
         }, 1500)
       }
+    }
+
+    if (!cwdShown && /Type your message/i.test(tail)) {
+      cwdShown = true
+      stdout.write(`\n \x1b[48;5;235m\x1b[38;5;147m 📁 ${workDir} \x1b[0m\n`)
     }
 
     if (buf.length > 65536) buf = buf.slice(-8192)

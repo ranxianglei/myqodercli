@@ -151,21 +151,24 @@ function spawnPlain(qc, args) {
 function spawnTuiPty(qc, args) {
   const cols = process.stdout.columns || 80;
   const rows = process.stdout.rows || 24;
-  const sess = findLatestSession(process.cwd());
+  const workDir = process.cwd();
+  const sess = findLatestSession(workDir);
   const memPath = sess ? ensureMemFile(sess.id) : null;
   const ptyProc = pty.spawn(qc, args, {
     name: "xterm-256color",
     cols,
     rows,
-    cwd: process.cwd(),
+    cwd: workDir,
     env: { ...process.env, FORCE_COLOR: process.env.FORCE_COLOR ?? "1" }
   });
   let buf = "";
   let lastOk = 0;
   let injected = false;
+  let cwdShown = false;
   ptyProc.onData((data) => {
-    import_process.stdout.write(data);
-    buf += data;
+    const filtered = data.replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, "\u{1F310}");
+    import_process.stdout.write(filtered);
+    buf += filtered;
     const clean = buf.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").replace(/\x0d/g, "");
     const tail = clean.slice(-4096);
     if (/Permission required/i.test(tail)) {
@@ -192,6 +195,12 @@ ${content}
 `);
         }, 1500);
       }
+    }
+    if (!cwdShown && /Type your message/i.test(tail)) {
+      cwdShown = true;
+      import_process.stdout.write(`
+ \x1B[48;5;235m\x1B[38;5;147m \u{1F4C1} ${workDir} \x1B[0m
+`);
     }
     if (buf.length > 65536) buf = buf.slice(-8192);
   });

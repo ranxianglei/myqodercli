@@ -9,8 +9,17 @@ qodercli 的包装器，解决两个痛点：
 
 ## 一键安装
 
+安装脚本内置了所有代码，无需翻墙或访问 GitHub Raw。
+
+**方式一：直接运行（需能访问 GitHub Raw）**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ranxianglei/myqodercli/master/install-myqodercli.sh | bash
+```
+
+**方式二：下载后运行**
+```bash
+# 下载 install-myqodercli.sh 后
+bash install-myqodercli.sh
 ```
 
 默认安装到 `~/.local/bin/myqodercli`。需要 **Node.js >= 18**。

@@ -8,17 +8,41 @@
 # ==============================================================================
 set -euo pipefail
 
-INSTALL_DIR="${1:-/usr/local/bin}"
+INSTALL_DIR="${1:-$HOME/.local/bin}"
 
-# ── 1. 检查依赖 ──────────────────────────────────────────────────────
+# ── 1. 依赖检查 + 自动安装 ──────────────────────────────────────────────────
+auto_install_expect() {
+  local pm="" cmd=""
+  if command -v apt-get &>/dev/null; then
+    pm="apt-get" && cmd="DEBIAN_FRONTEND=noninteractive apt-get install -y expect"
+  elif command -v yum &>/dev/null; then
+    pm="yum" && cmd="yum install -y expect"
+  elif command -v dnf &>/dev/null; then
+    pm="dnf" && cmd="dnf install -y expect"
+  elif command -v brew &>/dev/null; then
+    brew install expect && return 0
+  fi
+  if [[ -n "$pm" ]]; then
+    echo "正在通过 $pm 安装 expect..."
+    if command -v sudo &>/dev/null; then
+      sudo sh -c "$cmd" && return 0
+    else
+      eval "$cmd" && return 0
+    fi
+  fi
+  return 1
+}
+
 if ! command -v expect &>/dev/null; then
-  echo "错误: 'expect' 未安装" >&2
-  echo "" >&2
-  echo "安装方法:" >&2
-  echo "  apt:  sudo apt install -y expect" >&2
-  echo "  yum:  sudo yum install -y expect" >&2
-  echo "  brew: brew install expect" >&2
-  exit 1
+  if ! auto_install_expect; then
+    echo "错误: 无法自动安装 expect" >&2
+    echo "请手动安装后重试: sudo apt install -y expect  或  sudo yum install -y expect" >&2
+    exit 1
+  fi
+  if ! command -v expect &>/dev/null; then
+    echo "错误: expect 安装后仍未找到，请重启终端后重试" >&2
+    exit 1
+  fi
 fi
 
 if ! command -v qodercli &>/dev/null && [ -z "${QODERCLI_PATH:-}" ] && [ -z "${QODER_BINARY:-}" ]; then

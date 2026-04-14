@@ -8,6 +8,8 @@
   },
   "scripts": {
     "build": "tsc --noEmit && node scripts/build.mjs",
+    "build:install": "npm run build && bash scripts/build-install.sh",
+    "release": "bash scripts/build-install.sh",
     "typecheck": "tsc --noEmit",
     "dev": "node --import tsx src/bin/cli.ts"
   },

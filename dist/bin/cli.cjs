@@ -67,7 +67,7 @@ function processArgs(raw) {
   return ua;
 }
 function findLatestSession(cwd) {
-  const slug = cwd.replace(/^\/+/, "").replace(/\//g, "-") || "root";
+  const slug = "-" + cwd.replace(/^\/+/, "").replace(/\//g, "-");
   const dir = (0, import_path.join)(QODER_PROJECTS, slug);
   if (!(0, import_fs.existsSync)(dir)) return null;
   let best = null;
@@ -152,8 +152,6 @@ function spawnTuiPty(qc, args) {
   const cols = process.stdout.columns || 80;
   const rows = process.stdout.rows || 24;
   const workDir = process.cwd();
-  const sess = findLatestSession(workDir);
-  const memPath = sess ? ensureMemFile(sess.id) : null;
   const os = require("os");
   const localIp = (() => {
     const ifaces = os.networkInterfaces();
@@ -174,7 +172,6 @@ function spawnTuiPty(qc, args) {
   });
   let buf = "";
   let lastOk = 0;
-  let injected = false;
   let qoderTitle = "myqodercli";
   let titlePhase = 0;
   function composeTitle() {
@@ -227,22 +224,6 @@ function spawnTuiPty(qc, args) {
       buf = "";
       return;
     }
-    if (/Type your message/i.test(tail) && !injected && memPath) {
-      injected = true;
-      const content = (0, import_fs.readFileSync)(memPath, "utf8");
-      if (content.trim().length > 20) {
-        setTimeout(() => {
-          ptyProc.write(`\u89C4\u5219\uFF1A\u6301\u7EED\u7EF4\u62A4 ${memPath}\u3002\u6BCF\u6B21\u56DE\u590D\u672B\u5C3E\u7528 Bash \u66F4\u65B0 Worklog \u548C\u5404\u7AE0\u8282\u3002Compaction \u540E\u5148 cat ${memPath} \u6062\u590D\u8BB0\u5FC6\u3002Worklog \u6309\u65F6\u95F4\u8FFD\u52A0\u8BB0\u5F55\u7528\u6237\u9700\u6C42\u53D8\u5316\u3001\u4EFB\u52A1\u5207\u6362\u3001\u5173\u952E\u51B3\u7B56\u3002
-
-\u8BB0\u5FC6\u6587\u4EF6\u5185\u5BB9\uFF1A
-
-${content}
-
-\u8BF7\u6D88\u5316\u5E76\u7EE7\u7EED\u3002
-`);
-        }, 1500);
-      }
-    }
     if (buf.length > 65536) buf = buf.slice(-8192);
   });
   if (import_process.stdin.isTTY) import_process.stdin.setRawMode(true);
@@ -253,8 +234,8 @@ ${content}
     if (titleRotator) clearInterval(titleRotator);
     const code = exitCode ?? (signal ? 128 : 0);
     if (code === 0) {
-      const sid = sess ? sess.id : null;
-      const cmd = sid ? `myqodercli -r ${sid}` : "myqodercli --continue";
+      const latest = findLatestSession(workDir);
+      const cmd = latest ? `myqodercli -r ${latest.id}` : `myqodercli -w ${workDir} --continue`;
       import_process.stdout.write(`
 \x1B[38;5;243m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\x1B[0m
 `);

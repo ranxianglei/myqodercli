@@ -71,7 +71,7 @@ function processArgs(raw: string[]): string[] {
 }
 
 function findLatestSession(cwd: string): { id: string } | null {
-  const slug = cwd.replace(/^\/+/, '').replace(/\//g, '-') || 'root'
+  const slug = '-' + cwd.replace(/^\/+/, '').replace(/\//g, '-')
   const dir = join(QODER_PROJECTS, slug)
   if (!existsSync(dir)) return null
   let best: string | null = null
@@ -147,8 +147,6 @@ function spawnTuiPty(qc: string, args: string[]): void {
   const cols = process.stdout.columns || 80
   const rows = process.stdout.rows || 24
   const workDir = process.cwd()
-  const sess = findLatestSession(workDir)
-  const memPath = sess ? ensureMemFile(sess.id) : null
 
   const os = require('os') as typeof import('os')
   const localIp: string = (() => {
@@ -170,7 +168,6 @@ function spawnTuiPty(qc: string, args: string[]): void {
 
   let buf = ''
   let lastOk = 0
-  let injected = false
   let qoderTitle = 'myqodercli'
   let titlePhase = 0
 
@@ -228,16 +225,6 @@ function spawnTuiPty(qc: string, args: string[]): void {
       return
     }
 
-    if (/Type your message/i.test(tail) && !injected && memPath) {
-      injected = true
-      const content = readFileSync(memPath, 'utf8')
-      if (content.trim().length > 20) {
-        setTimeout(() => {
-          ptyProc.write(`规则：持续维护 ${memPath}。每次回复末尾用 Bash 更新 Worklog 和各章节。Compaction 后先 cat ${memPath} 恢复记忆。Worklog 按时间追加记录用户需求变化、任务切换、关键决策。\n\n记忆文件内容：\n\n${content}\n\n请消化并继续。\n`)
-        }, 1500)
-      }
-    }
-
     if (buf.length > 65536) buf = buf.slice(-8192)
   })
 
@@ -249,8 +236,8 @@ function spawnTuiPty(qc: string, args: string[]): void {
     if (titleRotator) clearInterval(titleRotator)
     const code = exitCode ?? (signal ? 128 : 0)
     if (code === 0) {
-      const sid = sess ? sess.id : null
-      const cmd = sid ? `myqodercli -r ${sid}` : 'myqodercli --continue'
+      const latest = findLatestSession(workDir)
+      const cmd = latest ? `myqodercli -r ${latest.id}` : `myqodercli -w ${workDir} --continue`
       stdout.write(`\n\x1b[38;5;243m──────────────────────────────────────────────────────────\x1b[0m\n`)
       stdout.write(`\x1b[38;5;147m  Continue this session: \x1b[0m\x1b[38;5;214m${cmd}\x1b[0m\n`)
       stdout.write(`\x1b[38;5;243m──────────────────────────────────────────────────────────\x1b[0m\n`)

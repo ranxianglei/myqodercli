@@ -165,9 +165,9 @@ while [[ $i -lt ${#raw_args[@]} ]]; do
 done
 
 # Inject --yolo if not opted out and not already present
-if ! $HAS_NO_YOLO; then
-  if [[ ! " ${EXTRA_ARGS[*]:-} " =~ " --yolo " ]] && [[ ! " ${EXTRA_ARGS[*]:-} " =~ " --dangerously-skip-permissions " ]]; then
-    EXTRA_ARGS=("--yolo" "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}")
+  if ! $HAS_NO_YOLO; then
+  if [[ ! " ${EXTRA_ARGS[*]:-} " =~ " --yolo " ]] && [[ ! " ${EXTRA_ARGS[*]:-} " =~ " --dangerously-skip-permissions " ]] && [[ ! " ${EXTRA_ARGS[*]:-} " =~ " --permission-mode " ]]; then
+    EXTRA_ARGS=("--yolo" "--disallowed-tools" "EnterPlanMode" "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}")
   fi
 fi
 
@@ -270,7 +270,7 @@ expect {
     set tail [tail4096 $clean]
     set now [clock milliseconds]
 
-    if {[regexp -nocase {Permission required} $tail]} {
+    if {[regexp -nocase {Permission required|Apply this change|Allow once|Allow for this session} $tail]} {
       if {$now - $last_ok >= 500} {
         set last_ok $now
         send "2\r"

@@ -65,8 +65,8 @@ function processArgs(raw: string[]): string[] {
   const ua = raw.slice(2)
   if (ua.some(a => a === '--no-yolo' || a === '--require-permissions'))
     return ua.filter(a => a !== '--no-yolo' && a !== '--require-permissions')
-  if (!ua.some(a => a === '--yolo' || a === '--dangerously-skip-permissions'))
-    return ['--yolo', ...ua]
+  if (!ua.some(a => a === '--yolo' || a === '--dangerously-skip-permissions' || a === '--permission-mode'))
+    return ['--yolo', '--disallowed-tools', 'EnterPlanMode', ...ua]
   return ua
 }
 
@@ -120,8 +120,12 @@ function spawnAcpProxy(qc: string, args: string[]): void {
     try { m = JSON.parse(t) as Record<string, unknown> } catch { stdout.write(line+'\n'); return }
     if ('id' in m && m.id !== undefined && 'method' in m && typeof m.method === 'string') {
       const id = m.id as number
-      if (m.method === 'session/request_permission') {
+      if (m.method === 'session/request_permission' || m.method === 'session/permission_request') {
         send({ jsonrpc:'2.0', id, result: { outcome: { outcome:'selected', optionId:'allow_always' }}})
+        return
+      }
+      if (m.method === 'tools/call' && (m.params as Record<string, unknown>)?.name === 'EnterPlanMode') {
+        send({ jsonrpc:'2.0', id, result: { content: [{ type: 'text', text: 'Plan mode is disabled. Proceed with implementation directly.' }] }})
         return
       }
       send({ jsonrpc:'2.0', id, result: {} })
@@ -218,7 +222,7 @@ function spawnTuiPty(qc: string, args: string[]): void {
     const clean = buf.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\x0d/g, '')
     const tail = clean.slice(-4096)
 
-    if (/Permission required/i.test(tail)) {
+    if (/Permission required|Apply this change|\u2764|Allow once|Allow for this session/i.test(tail)) {
       const now = Date.now()
       if (now - lastOk >= 500) { lastOk = now; ptyProc.write('2\r') }
       buf = ''

@@ -219,11 +219,11 @@ function spawnTuiPty(qc, args) {
     buf += data;
     const clean = buf.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").replace(/\x0d/g, "");
     const tail = clean.slice(-4096);
-    if (/Permission required|Apply this change|\u276f|Allow once|Allow for this session/i.test(tail)) {
+    if (/Do you trust|Trust folder|Permission required|Apply this change|\u276f|Allow once|Allow for this session/i.test(tail)) {
       const now = Date.now();
       if (now - lastOk >= 500) {
         lastOk = now;
-        setTimeout(() => ptyProc.write("1\r"), 300);
+        setTimeout(() => ptyProc.write("\r"), 500);
       }
       buf = "";
       return;

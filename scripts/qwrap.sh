@@ -260,7 +260,7 @@ proc do_inject {mp} {
 set timeout -1
 
 expect {
-  -re "(.+?)([\r\n]+|$)" {
+  -re "(.+?)(\[\r\n\]+|$)" {
     set chunk $expect_out(0,string)
     append buf $chunk
     puts -nonewline stdout $chunk
@@ -270,11 +270,20 @@ expect {
     set tail [tail4096 $clean]
     set now [clock milliseconds]
 
+    if {[regexp -nocase {Trust folder|Do you trust the files} $tail]} {
+      if {$now - $last_ok >= 500} {
+        set last_ok $now
+        after 500
+        send "\r"
+      }
+      set buf ""
+    }
+
     if {[regexp -nocase {Permission required|Apply this change|Allow once|Allow for this session} $tail]} {
       if {$now - $last_ok >= 500} {
         set last_ok $now
         after 300
-        send "1\r"
+        send "\r"
       }
       set buf ""
     }

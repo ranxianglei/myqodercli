@@ -195,7 +195,7 @@ function spawnTuiPty(qc, args) {
     buf += data;
     const clean = buf.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").replace(/\x0d/g, "");
     const tail = clean.slice(-4096);
-    if (/Do you trust|Trust folder|Permission required|Apply this change|\u276f|Allow once|Allow for this session/i.test(tail)) {
+    if (/Permission Required[\s\S]*?Tool:|Do you trust the files in this folder|Apply this change\?[\s\S]{0,20}Allow once/i.test(tail)) {
       const now = Date.now();
       if (now - lastOk >= 500) {
         lastOk = now;

@@ -178,6 +178,7 @@ function spawnTuiPty(qc, args) {
   let lastOk = 0;
   let lastCompact = 0;
   let sessionId = "";
+  let memInjected = false;
   let qoderTitle = "myqodercli";
   let titlePhase = 0;
   function composeTitle() {
@@ -241,21 +242,30 @@ function spawnTuiPty(qc, args) {
       const now = Date.now();
       if (now - lastCompact >= 3e3) {
         lastCompact = now;
-        const sid = sessionId || findLatestSession(workDir)?.id;
-        if (sid) {
-          const mp = sessMemPath(sid);
-          if ((0, import_fs.existsSync)(mp)) {
-            const content = (0, import_fs.readFileSync)(mp, "utf8");
-            if (content.trim().length > 20) {
-              setTimeout(() => {
-                ptyProc.write(`cat memory file to restore context:
+        memInjected = false;
+      }
+    }
+    if (!memInjected && /Type your message/i.test(tail)) {
+      const sid = sessionId || findLatestSession(workDir)?.id;
+      if (sid) {
+        ensureMemFile(sid);
+        sessionId = sid;
+        const mp = sessMemPath(sid);
+        if ((0, import_fs.existsSync)(mp)) {
+          const content = (0, import_fs.readFileSync)(mp, "utf8");
+          if (content.trim().length > 20) {
+            memInjected = true;
+            setTimeout(() => {
+              ptyProc.write(`
+Memory file: ${mp}
+
+Digest this context, then follow the rule: update ${mp} via Bash at the end of EVERY reply.
 
 ${content}
 
-Please digest and continue.
+Understood. Continue.
 `);
-              }, 1500);
-            }
+            }, 1500);
           }
         }
       }

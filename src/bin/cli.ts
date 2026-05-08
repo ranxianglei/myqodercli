@@ -174,6 +174,7 @@ function spawnTuiPty(qc: string, args: string[]): void {
   let lastOk = 0
   let lastCompact = 0
   let sessionId = ''
+  let memInjected = false
   let qoderTitle = 'myqodercli'
   let titlePhase = 0
 
@@ -246,16 +247,24 @@ function spawnTuiPty(qc: string, args: string[]): void {
       const now = Date.now()
       if (now - lastCompact >= 3000) {
         lastCompact = now
-        const sid = sessionId || findLatestSession(workDir)?.id
-        if (sid) {
-          const mp = sessMemPath(sid)
-          if (existsSync(mp)) {
-            const content = readFileSync(mp, 'utf8')
-            if (content.trim().length > 20) {
-              setTimeout(() => {
-                ptyProc.write(`cat memory file to restore context:\n\n${content}\n\nPlease digest and continue.\n`)
-              }, 1500)
-            }
+        memInjected = false
+      }
+    }
+
+    // Inject memory instructions on first prompt or after compaction
+    if (!memInjected && /Type your message/i.test(tail)) {
+      const sid = sessionId || findLatestSession(workDir)?.id
+      if (sid) {
+        ensureMemFile(sid)
+        sessionId = sid
+        const mp = sessMemPath(sid)
+        if (existsSync(mp)) {
+          const content = readFileSync(mp, 'utf8')
+          if (content.trim().length > 20) {
+            memInjected = true
+            setTimeout(() => {
+              ptyProc.write(`\nMemory file: ${mp}\n\nDigest this context, then follow the rule: update ${mp} via Bash at the end of EVERY reply.\n\n${content}\n\nUnderstood. Continue.\n`)
+            }, 1500)
           }
         }
       }

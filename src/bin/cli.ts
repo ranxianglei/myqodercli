@@ -239,13 +239,6 @@ function spawnTuiPty(qc: string, args: string[]): void {
     if (stdin.isTTY) stdin.setRawMode(false)
     if (titleRotator) clearInterval(titleRotator)
     const code = exitCode ?? (signal ? 128 : 0)
-    if (code === 0) {
-      const latest = findLatestSession(workDir)
-      const cmd = latest ? `myqodercli -r ${latest.id}` : `myqodercli -w ${workDir} --continue`
-      stdout.write(`\n\x1b[38;5;243m──────────────────────────────────────────────────────────\x1b[0m\n`)
-      stdout.write(`\x1b[38;5;147m  Continue this session: \x1b[0m\x1b[38;5;214m${cmd}\x1b[0m\n`)
-      stdout.write(`\x1b[38;5;243m──────────────────────────────────────────────────────────\x1b[0m\n`)
-    }
     exit(code)
   })
 }

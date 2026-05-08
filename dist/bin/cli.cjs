@@ -66,30 +66,6 @@ function processArgs(raw) {
     return ["--yolo", "--disallowed-tools", "EnterPlanMode", ...ua];
   return ua;
 }
-function findLatestSession(cwd) {
-  const slug = "-" + cwd.replace(/^\/+/, "").replace(/\//g, "-");
-  const dir = (0, import_path.join)(QODER_PROJECTS, slug);
-  if (!(0, import_fs.existsSync)(dir)) return null;
-  let best = null;
-  let mt = 0;
-  try {
-    for (const f of (0, import_fs.readdirSync)(dir).filter((x) => x.endsWith("-session.json"))) {
-      const fp = (0, import_path.join)(dir, f);
-      const st = (0, import_fs.statSync)(fp);
-      if (st.mtimeMs <= mt) continue;
-      try {
-        const j = JSON.parse((0, import_fs.readFileSync)(fp, "utf8"));
-        if (j.working_dir === cwd && j.id) {
-          best = j.id;
-          mt = st.mtimeMs;
-        }
-      } catch {
-      }
-    }
-  } catch {
-  }
-  return best ? { id: best } : null;
-}
 function sessMemPath(sid) {
   if (!(0, import_fs.existsSync)(QWRAP_SESS_DIR)) (0, import_fs.mkdirSync)(QWRAP_SESS_DIR, { recursive: true });
   return (0, import_path.join)(QWRAP_SESS_DIR, `${sid}.md`);
@@ -237,17 +213,6 @@ function spawnTuiPty(qc, args) {
     if (import_process.stdin.isTTY) import_process.stdin.setRawMode(false);
     if (titleRotator) clearInterval(titleRotator);
     const code = exitCode ?? (signal ? 128 : 0);
-    if (code === 0) {
-      const latest = findLatestSession(workDir);
-      const cmd = latest ? `myqodercli -r ${latest.id}` : `myqodercli -w ${workDir} --continue`;
-      import_process.stdout.write(`
-\x1B[38;5;243m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\x1B[0m
-`);
-      import_process.stdout.write(`\x1B[38;5;147m  Continue this session: \x1B[0m\x1B[38;5;214m${cmd}\x1B[0m
-`);
-      import_process.stdout.write(`\x1B[38;5;243m\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\x1B[0m
-`);
-    }
     (0, import_process.exit)(code);
   });
 }

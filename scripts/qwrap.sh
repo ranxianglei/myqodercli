@@ -273,7 +273,8 @@ expect {
     if {[regexp -nocase {Permission required|Apply this change|Allow once|Allow for this session} $tail]} {
       if {$now - $last_ok >= 500} {
         set last_ok $now
-        send "2\r"
+        after 300
+        send "1\r"
       }
       set buf ""
     }

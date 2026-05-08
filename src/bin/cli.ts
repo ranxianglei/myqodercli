@@ -172,6 +172,8 @@ function spawnTuiPty(qc: string, args: string[]): void {
 
   let buf = ''
   let lastOk = 0
+  let lastCompact = 0
+  let sessionId = ''
   let qoderTitle = 'myqodercli'
   let titlePhase = 0
 
@@ -222,11 +224,41 @@ function spawnTuiPty(qc: string, args: string[]): void {
     const clean = buf.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\x0d/g, '')
     const tail = clean.slice(-4096)
 
+    // Capture session ID from qodercli output
+    if (!sessionId) {
+      const sidMatch = tail.match(/session[_-]?id[:\s]+([a-zA-Z0-9_-]{8,})/i)
+        || tail.match(/(?:resuming|resumed|session)\s+([a-zA-Z0-9_-]{8,})/i)
+      if (sidMatch) {
+        sessionId = sidMatch[1]
+        ensureMemFile(sessionId)
+      }
+    }
+
     if (/Permission Required[\s\S]*?Tool:|Do you trust the files in this folder|Apply this change\?[\s\S]{0,20}Allow once/i.test(tail)) {
       const now = Date.now()
       if (now - lastOk >= 500) { lastOk = now; setTimeout(() => ptyProc.write('\r'), 500) }
       buf = ''
       return
+    }
+
+    // Detect compaction and re-inject memory
+    if (/Conversation compacted/i.test(tail)) {
+      const now = Date.now()
+      if (now - lastCompact >= 3000) {
+        lastCompact = now
+        const sid = sessionId || findLatestSession(workDir)?.id
+        if (sid) {
+          const mp = sessMemPath(sid)
+          if (existsSync(mp)) {
+            const content = readFileSync(mp, 'utf8')
+            if (content.trim().length > 20) {
+              setTimeout(() => {
+                ptyProc.write(`cat memory file to restore context:\n\n${content}\n\nPlease digest and continue.\n`)
+              }, 1500)
+            }
+          }
+        }
+      }
     }
 
     if (buf.length > 65536) buf = buf.slice(-8192)

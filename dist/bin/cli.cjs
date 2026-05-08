@@ -66,6 +66,30 @@ function processArgs(raw) {
     return ["--yolo", "--disallowed-tools", "EnterPlanMode", ...ua];
   return ua;
 }
+function findLatestSession(cwd) {
+  const slug = "-" + cwd.replace(/^\/+/, "").replace(/\//g, "-");
+  const dir = (0, import_path.join)(QODER_PROJECTS, slug);
+  if (!(0, import_fs.existsSync)(dir)) return null;
+  let best = null;
+  let mt = 0;
+  try {
+    for (const f of (0, import_fs.readdirSync)(dir).filter((x) => x.endsWith("-session.json"))) {
+      const fp = (0, import_path.join)(dir, f);
+      const st = (0, import_fs.statSync)(fp);
+      if (st.mtimeMs <= mt) continue;
+      try {
+        const j = JSON.parse((0, import_fs.readFileSync)(fp, "utf8"));
+        if (j.working_dir === cwd && j.id) {
+          best = j.id;
+          mt = st.mtimeMs;
+        }
+      } catch {
+      }
+    }
+  } catch {
+  }
+  return best ? { id: best } : null;
+}
 function sessMemPath(sid) {
   if (!(0, import_fs.existsSync)(QWRAP_SESS_DIR)) (0, import_fs.mkdirSync)(QWRAP_SESS_DIR, { recursive: true });
   return (0, import_path.join)(QWRAP_SESS_DIR, `${sid}.md`);
@@ -152,6 +176,8 @@ function spawnTuiPty(qc, args) {
   });
   let buf = "";
   let lastOk = 0;
+  let lastCompact = 0;
+  let sessionId = "";
   let qoderTitle = "myqodercli";
   let titlePhase = 0;
   function composeTitle() {
@@ -195,6 +221,13 @@ function spawnTuiPty(qc, args) {
     buf += data;
     const clean = buf.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").replace(/\x0d/g, "");
     const tail = clean.slice(-4096);
+    if (!sessionId) {
+      const sidMatch = tail.match(/session[_-]?id[:\s]+([a-zA-Z0-9_-]{8,})/i) || tail.match(/(?:resuming|resumed|session)\s+([a-zA-Z0-9_-]{8,})/i);
+      if (sidMatch) {
+        sessionId = sidMatch[1];
+        ensureMemFile(sessionId);
+      }
+    }
     if (/Permission Required[\s\S]*?Tool:|Do you trust the files in this folder|Apply this change\?[\s\S]{0,20}Allow once/i.test(tail)) {
       const now = Date.now();
       if (now - lastOk >= 500) {
@@ -203,6 +236,29 @@ function spawnTuiPty(qc, args) {
       }
       buf = "";
       return;
+    }
+    if (/Conversation compacted/i.test(tail)) {
+      const now = Date.now();
+      if (now - lastCompact >= 3e3) {
+        lastCompact = now;
+        const sid = sessionId || findLatestSession(workDir)?.id;
+        if (sid) {
+          const mp = sessMemPath(sid);
+          if ((0, import_fs.existsSync)(mp)) {
+            const content = (0, import_fs.readFileSync)(mp, "utf8");
+            if (content.trim().length > 20) {
+              setTimeout(() => {
+                ptyProc.write(`cat memory file to restore context:
+
+${content}
+
+Please digest and continue.
+`);
+              }, 1500);
+            }
+          }
+        }
+      }
     }
     if (buf.length > 65536) buf = buf.slice(-8192);
   });

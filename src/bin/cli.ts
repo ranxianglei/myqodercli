@@ -3,6 +3,7 @@ import { join, dirname } from 'path'
 import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync, readdirSync } from 'fs'
 import { createInterface } from 'readline'
 import { stdin, stdout, argv, exit, env } from 'process'
+import { homedir } from 'os'
 // @ts-ignore
 const pty: typeof import('node-pty') = require('@homebridge/node-pty-prebuilt-multiarch')
 
@@ -251,22 +252,45 @@ function spawnTuiPty(qc: string, args: string[]): void {
       }
     }
 
-    // Inject memory instructions on first prompt or after compaction
     if (!memInjected && /Type your message/i.test(tail)) {
       const sid = sessionId || findLatestSession(workDir)?.id
       if (sid) {
         ensureMemFile(sid)
         sessionId = sid
-        const mp = sessMemPath(sid)
-        if (existsSync(mp)) {
-          const content = readFileSync(mp, 'utf8')
-          if (content.trim().length > 20) {
-            memInjected = true
-            setTimeout(() => {
-              ptyProc.write(`\nMemory file: ${mp}\n\nDigest this context, then follow the rule: update ${mp} via Bash at the end of EVERY reply.\n\n${content}\n\nUnderstood. Continue.\n`)
-            }, 1500)
+        memInjected = true
+        setTimeout(() => {
+          const dcpPath = join(homedir(), '.qoder-dcp', `${sid}.json`)
+          let dcpSummary = ''
+          if (existsSync(dcpPath)) {
+            try {
+              const state = JSON.parse(readFileSync(dcpPath, 'utf8'))
+              if (state.compressions?.length > 0) {
+                dcpSummary = state.compressions
+                  .map((c: any, i: number) =>
+                    `[${i + 1}] ${c.topic} (${c.startId} → ${c.endId})\n${c.summary}`
+                  )
+                  .join('\n\n')
+              }
+            } catch {}
           }
-        }
+          const mp = sessMemPath(sid)
+          let memContent = ''
+          if (existsSync(mp)) {
+            memContent = readFileSync(mp, 'utf8').trim()
+          }
+
+          if (dcpSummary || memContent.length > 20) {
+            let msg = '\nContext restoration after compaction:\n'
+            if (dcpSummary) {
+              msg += `\n--- DCP Compression Summaries ---\n${dcpSummary}\n`
+            }
+            if (memContent.length > 20) {
+              msg += `\n--- Session Memory ---\nFile: ${mp}\nRule: update ${mp} via Bash at end of EVERY reply.\n${memContent}\n`
+            }
+            msg += '\nDigest and continue.\n'
+            ptyProc.write(msg)
+          }
+        }, 1500)
       }
     }
 

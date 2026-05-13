@@ -7,6 +7,7 @@ var import_path = require("path");
 var import_fs = require("fs");
 var import_readline = require("readline");
 var import_process = require("process");
+var import_os = require("os");
 var pty = require("@homebridge/node-pty-prebuilt-multiarch");
 var __dirname = (0, import_path.dirname)(__filename);
 var QODER_PROJECTS = (0, import_path.join)(import_process.env.HOME || "~", ".qoder", "projects");
@@ -250,24 +251,47 @@ function spawnTuiPty(qc, args) {
       if (sid) {
         ensureMemFile(sid);
         sessionId = sid;
-        const mp = sessMemPath(sid);
-        if ((0, import_fs.existsSync)(mp)) {
-          const content = (0, import_fs.readFileSync)(mp, "utf8");
-          if (content.trim().length > 20) {
-            memInjected = true;
-            setTimeout(() => {
-              ptyProc.write(`
-Memory file: ${mp}
-
-Digest this context, then follow the rule: update ${mp} via Bash at the end of EVERY reply.
-
-${content}
-
-Understood. Continue.
-`);
-            }, 1500);
+        memInjected = true;
+        setTimeout(() => {
+          const dcpPath = (0, import_path.join)((0, import_os.homedir)(), ".qoder-dcp", `${sid}.json`);
+          let dcpSummary = "";
+          if ((0, import_fs.existsSync)(dcpPath)) {
+            try {
+              const state = JSON.parse((0, import_fs.readFileSync)(dcpPath, "utf8"));
+              if (state.compressions?.length > 0) {
+                dcpSummary = state.compressions.map(
+                  (c, i) => `[${i + 1}] ${c.topic} (${c.startId} \u2192 ${c.endId})
+${c.summary}`
+                ).join("\n\n");
+              }
+            } catch {
+            }
           }
-        }
+          const mp = sessMemPath(sid);
+          let memContent = "";
+          if ((0, import_fs.existsSync)(mp)) {
+            memContent = (0, import_fs.readFileSync)(mp, "utf8").trim();
+          }
+          if (dcpSummary || memContent.length > 20) {
+            let msg = "\nContext restoration after compaction:\n";
+            if (dcpSummary) {
+              msg += `
+--- DCP Compression Summaries ---
+${dcpSummary}
+`;
+            }
+            if (memContent.length > 20) {
+              msg += `
+--- Session Memory ---
+File: ${mp}
+Rule: update ${mp} via Bash at end of EVERY reply.
+${memContent}
+`;
+            }
+            msg += "\nDigest and continue.\n";
+            ptyProc.write(msg);
+          }
+        }, 1500);
       }
     }
     if (buf.length > 65536) buf = buf.slice(-8192);
